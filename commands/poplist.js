@@ -14,21 +14,22 @@ module.exports = {
     const verdantRole = interaction.guild.roles.cache.get("1175866500834414623");
     const scarletRole = interaction.guild.roles.cache.get("1175866468018167808");
 
-    const azureNum = azureRole.members;
-    const verdantNum = verdantRole.members;
-    const scarletNum = scarletRole.members;
+    const azureNum = azureRole.members.filter(member => member.user.tag != "Tricolour Bot#2125");
+    const verdantNum = verdantRole.members.filter(member => member.user.tag != "Tricolour Bot#2125");
+    const scarletNum = scarletRole.members.filter(member => member.user.tag != "Tricolour Bot#2125");
 
     if (number == 1) {
       const listMembers = azureNum.map(member => member.user.tag).join('\n');
-      await interaction.reply({ content: `List of Azure members:\n\`\`\`${listMembers}\`\`\`` });
+
+      await interaction.reply({ content: `List of Azure members:\n\`\`\`\n${listMembers}\`\`\`` });
     }
     else if (number == 2) {
       const listMembers = verdantNum.map(member => member.user.tag).join('\n');
-      await interaction.reply({ content: `List of Verdant members:\n\`\`\`${listMembers}\`\`\`` });
+      await interaction.reply({ content: `List of Verdant members:\n\`\`\`\n${listMembers}\`\`\`` });
     }
     else if (number == 3) {
       const listMembers = scarletNum.map(member => member.user.tag).join('\n');
-      await interaction.reply({ content: `List of Scarlet members:\n\`\`\`${listMembers}\`\`\`` });
+      await interaction.reply({ content: `List of Scarlet members:\n\`\`\`\n${listMembers}\`\`\`` });
     } 
     else {
       await interaction.reply({ content: `Invalid number!` });
