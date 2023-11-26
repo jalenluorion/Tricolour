@@ -1,0 +1,25 @@
+{
+  "name": "Tricolour",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "jalenluorion <<>",
+  "license": "MIT",
+  "description": "### Node JS Version of Bot Bilby",
+  "dependencies": {
+    "dayjs": "^1.11.10",
+    "discord.js": "^14.3.0",
+    "dotenv": "^16.3.1",
+    "google-auth-library": "^9.2.0",
+    "google-spreadsheet": "^4.1.1",
+    "nodemon": "^3.0.1"
+  },
+  "devDependencies": {
+    "node": "^16.14.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": []
+}
