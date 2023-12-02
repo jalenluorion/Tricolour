@@ -4,6 +4,7 @@ const { Routes } = require('discord-api-types/v9');
 var http = require('http');
 const logger = require('./logger.js');
 const dotenv = require('dotenv');
+const { execute, validate } = require('./helpers/inventory.js');
 dotenv.config();
 
 http.createServer(function (req, res) {
@@ -82,6 +83,67 @@ client.on('interactionCreate', async interaction => {
   } catch (error) {
     if (error) logger.error(error);
     await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+  }
+});
+
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  if (message.content.includes('tricolour')) {
+    //react red green blue circle emoji
+    message.react('🔴');
+    message.react('🟢');
+    message.react('🔵');
+  }
+  if (message.content.toLowerCase().includes('jophiel')) {
+    message.react('❤️');
+    message.react('💚');
+    message.react('💙');
+  }
+
+  const userName = message.author.username;
+  const time = message.createdTimestamp;
+  if (message.channel.id === '1180052378238582834') { // public
+    const triggerMessage = message.content;
+    const firstLine = triggerMessage.split('\n')[0];
+    if (firstLine === "WITHDRAW"){
+      const reason = triggerMessage.split('\n')[1];
+      const newTriggerMessage = triggerMessage.split('\n').slice(2);
+      
+      const finalList = [];
+      var error = "";
+      for (const line of newTriggerMessage) {
+        const lineArray = line.split(' - ');
+        const available = await execute(lineArray[0]);
+        const validated = await validate(lineArray[0]);
+
+        const lineObject = {
+          'Player Name': userName,
+          'ITEM': validated,
+          'QUANTITY': lineArray[1],
+          'TYPE': 'WITHDRAW',
+          'DAY': 7,
+          'TIME (EST)': time,
+          'NOTES': reason,
+        };
+
+        if (available == null) {
+          error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
+        }
+        else if (available < lineArray[1]) {
+          error = error + validated + ` does not have enough available. There is ${available} available.\n`;
+        }
+        finalList.push(lineObject);
+      }
+
+      if (error != "") {
+        message.reply(error);
+        return;
+      }
+      
+      console.log(finalList);
+    }
+  } else if (message.channel.id === '1180408943013527552') { // private
+    const triggerMessage = message.content;
   }
 });
 
