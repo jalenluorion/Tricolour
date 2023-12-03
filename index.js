@@ -5,6 +5,8 @@ var http = require('http');
 const logger = require('./logger.js');
 const dotenv = require('dotenv');
 const { execute, validate } = require('./helpers/inventory.js');
+const { name } = require('./helpers/user.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
 dotenv.config();
 
 http.createServer(function (req, res) {
@@ -89,7 +91,6 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
   if (message.content.includes('tricolour')) {
-    //react red green blue circle emoji
     message.react('🔴');
     message.react('🟢');
     message.react('🔵');
@@ -103,6 +104,8 @@ client.on('messageCreate', async message => {
   const userName = message.author.username;
   const time = message.createdTimestamp;
   if (message.channel.id === '1180052378238582834') { // public
+    // PREPPING REQUEST
+    const replyMessage = await message.reply("Submitting...");
     const triggerMessage = message.content;
     const firstLine = triggerMessage.split('\n')[0];
     if (firstLine === "WITHDRAW"){
@@ -136,11 +139,141 @@ client.on('messageCreate', async message => {
       }
 
       if (error != "") {
-        message.reply(error);
+        replyMessage.edit(error);
         return;
       }
       
       console.log(finalList);
+      replyMessage.edit("Your request has been submitted. Please wait for a quartermaster to confirm your request.");
+
+      // REQUEST SENT
+      const userInfo = await name(userName);
+      for (const item of finalList) {
+        const QMChannel = client.channels.cache.get('1180408943013527552');
+        // add a confirm deny and edit discord js button
+        const confirm = new ButtonBuilder()
+          .setStyle(ButtonStyle.Success)
+          .setLabel('Accept')
+          .setCustomId('accept');
+        const deny = new ButtonBuilder()
+          .setStyle(ButtonStyle.Danger)
+          .setLabel('Deny')
+          .setCustomId('deny');
+        const edit = new ButtonBuilder()
+          .setStyle(ButtonStyle.Primary)
+          .setLabel('Edit')
+          .setCustomId('edit');
+        const row = new ActionRowBuilder()
+          .addComponents(confirm, deny, edit);
+        const confirmDisabled = new ButtonBuilder()
+          .setStyle(ButtonStyle.Success)
+          .setLabel('Accept')
+          .setCustomId('accept')
+          .setDisabled(true);
+        const denyDisabled = new ButtonBuilder()
+          .setStyle(ButtonStyle.Danger)
+          .setLabel('Deny')
+          .setCustomId('deny')
+          .setDisabled(true);
+        const editDisabled = new ButtonBuilder()
+          .setStyle(ButtonStyle.Primary)
+          .setLabel('Edit')
+          .setCustomId('edit')
+          .setDisabled(true);
+        const rowDisabled = new ActionRowBuilder()
+          .addComponents(confirmDisabled, denyDisabled, editDisabled);
+
+        const QMMessage = await QMChannel.send({ content: `## WITHDRAWAL Request\nUser: <@${message.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']}**`, components: [row] });
+        const filter = i => i.customId === 'accept' || i.customId === 'deny' || i.customId === 'edit';
+        const collector = QMMessage.createMessageComponentCollector({ filter, time: 300000 });
+
+        var responce = false;
+        collector.on('collect', async i => {
+          if (i.customId === 'accept') {
+            responce = true;
+            await i.update({ content: `## WITHDRAWAL Request - Accepted by <@${i.user.id}>\nUser: <@${message.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']}**`, components: [rowDisabled] });
+            await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been accepted. Make your way to the Quartermasters House now!'});
+          }
+          else if (i.customId === 'deny') {
+            responce = true;
+            await i.update({ content: `## WITHDRAWAL Request - Denied by <@${i.user.id}>\nUser: <@${message.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']}**`, components: [rowDisabled]});
+            await i.followUp({ content: 'Provide a reason for denying this request.'});
+            const filter = m => m.author.id === i.user.id;
+            const collector = i.channel.createMessageCollector({ filter, time: 300000 });
+
+            var responce2 = false;
+            collector.on('collect', async m => {
+              responce2 = true;
+              await m.react('✅');
+              await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been denied. Reason: ' + m.content});
+            });
+            collector.on('end', async collected => {
+              if (responce2 == false) {
+                await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been denied. Reason: None Specified'});
+              }
+              console.log(`Collected ${collected.size} items`);
+            });
+          }
+          else if (i.customId === 'edit') {
+            responce = true;
+            await i.update({ content: `## WITHDRAWAL Request - Edited by <@${i.user.id}>
+            \nUser: <@${message.author.id}>
+            \nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']}**`, components: [rowDisabled]});
+            await i.followUp({ content: 'Provide a new quantity amount for this request'});
+            const filter = m => m.author.id === i.user.id;
+            const collector = i.channel.createMessageCollector({ filter, time: 300000 });
+
+            var responce2 = false;
+            collector.on('collect', async m => {
+              responce2 = true;
+
+              const acceptButton = new ButtonBuilder()
+                .setStyle(ButtonStyle.Success)
+                .setLabel('Accept')
+                .setCustomId('userAccept');
+              const denyButton = new ButtonBuilder()
+                .setStyle(ButtonStyle.Danger)
+                .setLabel('Deny')
+                .setCustomId('userDeny');
+              const newRow = new ActionRowBuilder()
+                .addComponents(acceptButton, denyButton);
+
+              await m.react('✅');
+              await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + m.content + '**. Please confirm the new quantity.', components: [newRow]});
+              const filter = i => i.customId === 'userAccept' || i.customId === 'userDeny';
+              const collector = i.channel.createMessageComponentCollector({ filter, time: 300000 });
+
+              var responce3 = false;
+              collector.on('collect', async i => {
+                if (i.customId === 'userAccept') {
+                  responce3 = true;
+                  await i.update({ content: `## WITHDRAWAL Request - Accepted by <@${i}>\nUser: <@${message}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${m.content}**`, components: [rowDisabled]});
+                  await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + m.content + '**'});
+                }
+                else if (i.customId === 'userDeny') {
+                  responce3 = true;
+                  await i.update({ content: `## WITHDRAWAL Request - Edited by <@${i}>\nUser: <@${message}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${m.content}**`, components: [rowDisabled]});
+
+                }
+              }
+            });
+            collector.on('end', async collected => {
+              if (responce2 == false) {
+                await message.reply({ content: 'Your WITHDRAWAL request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + item['QUANTITY'] + '**'});
+              }
+              console.log(`Collected ${collected.size} items`);
+            });
+          }
+        });
+        collector.on('end', collected => {
+          if (responce == false) {
+            QMMessage.edit({ content: `## WITHDRAWAL Request - Timed Out\nUser: <@${message.author.id}>
+            \nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']}**`, components: [rowDisabled] });
+            message.reply({ content: 'Your request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has timed out. Please resubmit your request.'});
+          }
+          console.log(`Collected ${collected.size} items`);
+        });
+      }
     }
   } else if (message.channel.id === '1180408943013527552') { // private
     const triggerMessage = message.content;
