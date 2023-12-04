@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 const { execute, validate } = require('./helpers/inventory.js');
 const { name } = require('./helpers/user.js');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
-
+const dayjs = require('dayjs');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 
@@ -125,13 +125,7 @@ client.on('messageCreate', async originalMessage => {
 
         // i want MM/DD/YYYY HH:MM:SS
         const formattedTime = new Date(time);
-        const month = formattedTime.getMonth() + 1;
-        const day = formattedTime.getDate();
-        const year = formattedTime.getFullYear();
-        const hours = formattedTime.getHours() - 5;
-        const minutes = formattedTime.getMinutes();
-        const seconds = formattedTime.getSeconds();
-        const newTime = `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+        const newTime = dayjs(formattedTime).subtract(5, 'hour').format('MM/DD/YYYY HH:mm:ss');
 
         console.log(newTime);
 
@@ -198,7 +192,7 @@ client.on('messageCreate', async originalMessage => {
 
         const QMMessage = await QMChannel.send({ content: `## ${firstLine} Request\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [row] });
         const filter = i => i.customId === 'accept' || i.customId === 'deny' || i.customId === 'edit';
-        const actionButtons = QMMessage.createMessageComponentCollector({ filter, time: 300000 });
+        const actionButtons = QMMessage.createMessageComponentCollector({ filter, time: 600000 });
 
         var responce = false;
         actionButtons.on('collect', async buttonInteraction => {
@@ -217,7 +211,7 @@ client.on('messageCreate', async originalMessage => {
             await buttonInteraction.update({ content: `## ${firstLine} Request - Denied by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
             await buttonInteraction.followUp({ content: `Provide a reason for denying this request.` });
             const filter = m => m.author.id === buttonInteraction.user.id;
-            const denyReason = buttonInteraction.channel.createMessageCollector({ filter, time: 300000 });
+            const denyReason = buttonInteraction.channel.createMessageCollector({ filter, time: 600000 });
 
             var responce2 = false;
             denyReason.on('collect', async responceMessage => {
@@ -240,7 +234,7 @@ client.on('messageCreate', async originalMessage => {
             await buttonInteraction.update({ content: `## ${firstLine} Request - Edited by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
             await buttonInteraction.followUp({ content: 'Provide a new quantity amount for this request' });
             const filter = m => m.author.id === buttonInteraction.user.id;
-            const quantityCollector = buttonInteraction.channel.createMessageCollector({ filter, time: 300000 });
+            const quantityCollector = buttonInteraction.channel.createMessageCollector({ filter, time: 600000 });
 
             var responce2 = false;
             quantityCollector.on('collect', async responceMessage => {
@@ -274,9 +268,9 @@ client.on('messageCreate', async originalMessage => {
 
               await responceMessage.react('✅');
               await QMMessage.edit({ content: `## ${firstLine} Request - Edited by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${responceMessage.content} / ${item['available']} (EDITED)**`, components: [rowDisabled] });
-              const confirmation = await originalMessage.reply({ content: `Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + responceMessage.content + '**. Please confirm the new quantity.`, components: [newRow] });
+              const confirmation = await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has been edited to **` + responceMessage.content + `**. Please confirm the new quantity.`, components: [newRow] });
               const filter = i => i.customId === 'userAccept' || i.customId === 'userDeny';
-              const confirmationButton = confirmation.createMessageComponentCollector({ filter, time: 300000 });
+              const confirmationButton = confirmation.createMessageComponentCollector({ filter, time: 600000 });
 
               var responce3 = false;
               confirmationButton.on('collect', async buttonInteraction => {
@@ -307,7 +301,7 @@ client.on('messageCreate', async originalMessage => {
             });
             quantityCollector.on('end', async collected => {
               if (responce2 == false) {
-                await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
+                await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
                 await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.` });
               }
               console.log(`Collected ${collected.size} items`);
@@ -340,17 +334,8 @@ client.on('messageCreate', async originalMessage => {
         const available = await execute(lineArray[0]);
         const validated = await validate(lineArray[0]);
 
-        // i want MM/DD/YYYY HH:MM:SS
         const formattedTime = new Date(time);
-        const month = formattedTime.getMonth() + 1;
-        const day = formattedTime.getDate();
-        const year = formattedTime.getFullYear();
-        const hours = formattedTime.getHours() - 5;
-        const minutes = formattedTime.getMinutes();
-        const seconds = formattedTime.getSeconds();
-        const newTime = `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
-
-        console.log(newTime);
+        const newTime = dayjs(formattedTime).subtract(5, 'hour').format('MM/DD/YYYY HH:mm:ss');
 
         const lineObject = {
           'Quartermaster': userName,
@@ -417,7 +402,7 @@ async function addToSheet(object) {
     list.getCell(i, 5).value = object['DAY'];
     list.getCell(i, 6).value = object['TIME (EST)'];
     list.getCell(i, 7).value = object['NOTES'];
-    list.saveUpdatedCells();
+    await list.saveUpdatedCells();
     break;
   }
 }
