@@ -4,14 +4,18 @@ const { Routes } = require('discord-api-types/v9');
 var http = require('http');
 const logger = require('./logger.js');
 const dotenv = require('dotenv');
-const { execute, validate } = require('./helpers/inventory.js');
+const { find } = require('./helpers/inventory.js');
 const { name } = require('./helpers/user.js');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 
 dotenv.config();
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 http.createServer(function (req, res) {
   res.write("I'm alive");
@@ -107,7 +111,7 @@ client.on('messageCreate', async originalMessage => {
 
   const userName = originalMessage.author.username;
   const time = originalMessage.createdTimestamp;
-  if (originalMessage.channel.id === '1180052378238582834') { // public
+  if (originalMessage.channel.id === '1181097586485112862') { // public
     // PREPPING REQUEST
     const triggerMessage = originalMessage.content;
     const firstLine = triggerMessage.split('\n')[0];
@@ -115,35 +119,41 @@ client.on('messageCreate', async originalMessage => {
       const replyMessage = await originalMessage.reply("Submitting...");
       const reason = triggerMessage.split('\n')[1];
       const newTriggerMessage = triggerMessage.split('\n').slice(2);
+      const userInfo = await name(userName);
 
       const finalList = [];
       var error = "";
       for (const line of newTriggerMessage) {
         const lineArray = line.split(' - ');
-        const available = await execute(lineArray[0]);
-        const validated = await validate(lineArray[0]);
+        const available = await find(lineArray[0]);
 
         // i want MM/DD/YYYY HH:MM:SS
         const formattedTime = new Date(time);
-        const newTime = dayjs(formattedTime).subtract(5, 'hour').format('MM/DD/YYYY HH:mm:ss');
+        const newTime = dayjs(formattedTime).tz("America/New_York").format('MM/DD/YYYY HH:mm:ss');
 
         console.log(newTime);
 
+        if (available == null) {
+          error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
+          continue;
+        }
+        if (userInfo == null) {
+          error = error + userName + " is not a valid user. Use \`/user <username>` to view all valid users.\n";
+          continue;
+        }
         const lineObject = {
-          'Player Name': userName,
-          'ITEM': validated,
+          'Player Name': userInfo.discordIDOne,
+          'ITEM': available.item,
           'QUANTITY': lineArray[1],
           'TYPE': firstLine,
           'DAY': 8,
           'TIME (EST)': newTime,
           'NOTES': reason,
-          'available': available,
+          'available': available.numAvailable,
         };
 
-        if (available == null) {
-          error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
-        }
         finalList.push(lineObject);
+
       }
 
       if (error != "") {
@@ -155,7 +165,6 @@ client.on('messageCreate', async originalMessage => {
       replyMessage.edit("Your request has been submitted. Please wait for a quartermaster to confirm your request.");
 
       // REQUEST SENT
-      const userInfo = await name(userName);
       for (const item of finalList) {
         const QMChannel = client.channels.cache.get('1180408943013527552');
         const confirm = new ButtonBuilder()
@@ -190,6 +199,7 @@ client.on('messageCreate', async originalMessage => {
         const rowDisabled = new ActionRowBuilder()
           .addComponents(confirmDisabled, denyDisabled, editDisabled);
 
+        await QMChannel.send({ content: `<@&1176380423786475523>`});
         const QMMessage = await QMChannel.send({ content: `## ${firstLine} Request\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [row] });
         const filter = i => i.customId === 'accept' || i.customId === 'deny' || i.customId === 'edit';
         const actionButtons = QMMessage.createMessageComponentCollector({ filter, time: 600000 });
@@ -205,6 +215,7 @@ client.on('messageCreate', async originalMessage => {
             await buttonInteraction.update({ content: `## ${firstLine} Request - Accepted by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
             await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has been accepted. Make your way to the Quartermasters House now!` }, { components: [rowDisabled] });
             await addToSheet(item);
+            QMMessage.reply({ content: `Request logged in spreadsheet.` });
           }
           else if (buttonInteraction.customId === 'deny') {
             responce = true;
@@ -284,6 +295,7 @@ client.on('messageCreate', async originalMessage => {
                   await buttonInteraction.update({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has been accepted. Make your way to the Quartermasters House now!`, components: [newRowDisabled] });
                   item['QUANTITY'] = responceMessage.content;
                   await addToSheet(item);
+                  QMMessage.reply({ content: `Request logged in spreadsheet.` });
                 }
                 else if (buttonInteraction.customId === 'userDeny') {
                   responce3 = true;
@@ -294,7 +306,7 @@ client.on('messageCreate', async originalMessage => {
               confirmationButton.on('end', async collected => {
                 if (responce3 == false) {
                   await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${responceMessage.content} / ${item['available']} (EDITED)**`, components: [rowDisabled] });
-                  await confirmation.edit({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.`, components: [rowDisabled] });
+                  await confirmation.edit({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request later.`, components: [rowDisabled] });
                 }
                 console.log(`Collected ${collected.size} items`);
               });
@@ -302,7 +314,7 @@ client.on('messageCreate', async originalMessage => {
             quantityCollector.on('end', async collected => {
               if (responce2 == false) {
                 await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-                await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.` });
+                await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request later.` });
               }
               console.log(`Collected ${collected.size} items`);
             });
@@ -311,7 +323,7 @@ client.on('messageCreate', async originalMessage => {
         actionButtons.on('end', collected => {
           if (responce == false) {
             QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-            originalMessage.reply({ content: `Your request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.` });
+            originalMessage.reply({ content: `Your request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request later.` });
           }
           console.log(`Collected ${collected.size} items`);
         });
@@ -331,30 +343,31 @@ client.on('messageCreate', async originalMessage => {
       var error = "";
       for (const line of newTriggerMessage) {
         const lineArray = line.split(' - ');
-        const available = await execute(lineArray[0]);
-        const validated = await validate(lineArray[0]);
+        const available = await find(lineArray[0]);
 
         const formattedTime = new Date(time);
-        const newTime = dayjs(formattedTime).subtract(5, 'hour').format('MM/DD/YYYY HH:mm:ss');
+        const newTime = dayjs(formattedTime).tz("America/New_York").format('MM/DD/YYYY HH:mm:ss');
+
+        if (available == null) {
+          error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
+          continue;
+        }
+        if (confirmedUser == null) {
+          error = error + otherUser + " is not a valid user. Use \`/user <username>` to view all valid users.\n";
+          continue;
+        }
 
         const lineObject = {
           'Quartermaster': userName,
-          'Player Name': confirmedUser.minecraftIGN,
-          'ITEM': validated,
+          'Player Name': confirmedUser.discordIDOne,
+          'ITEM': available.item,
           'QUANTITY': lineArray[1],
           'TYPE': firstLine,
           'DAY': 8,
           'TIME (EST)': newTime,
           'NOTES': reason,
-          'available': available,
+          'available': available.numAvailable,
         };
-
-        if (available == null) {
-          error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
-        }
-        if (confirmedUser == null) {
-          error = error + otherUser + " is not a valid user. Use \`/user <username>` to view all valid users.\n";
-        }
         finalList.push(lineObject);
       }
 
@@ -364,10 +377,10 @@ client.on('messageCreate', async originalMessage => {
       }
 
       console.log(finalList);
-      replyMessage.edit("Your request has been submitted and logged.");
       for (const item of finalList) {
         await addToSheet(item);
       }
+      replyMessage.edit("Your request has been submitted and logged in the spreadsheet.");
     }
   }
 });
@@ -385,26 +398,19 @@ async function addToSheet(object) {
 
   await doc.loadInfo();
   const list = doc.sheetsByTitle['INPUTBOT'];
-  await list.loadCells();
 
-  // add the object to the next blank row
-  const totalRows = list.rowCount;
+  const editedObject = {
+    'Quartermaster': object['Quartermaster'],
+    'Player Name': object['Player Name'],
+    'ITEM': object['ITEM'],
+    'QUANTITY': object['QUANTITY'],
+    'TYPE': object['TYPE'],
+    'DAY': object['DAY'],
+    'TIME (EST)': object['TIME (EST)'],
+    'NOTES': object['NOTES'],
+  };
 
-  for (let i = 1; i < totalRows; i++) {
-    if (list.getCell(i, 0).value != null){
-      continue;
-    }
-    list.getCell(i, 0).value = object['Quartermaster'];
-    list.getCell(i, 1).value = object['Player Name'];
-    list.getCell(i, 2).value = object['ITEM'];
-    list.getCell(i, 3).value = object['QUANTITY'];
-    list.getCell(i, 4).value = object['TYPE'];
-    list.getCell(i, 5).value = object['DAY'];
-    list.getCell(i, 6).value = object['TIME (EST)'];
-    list.getCell(i, 7).value = object['NOTES'];
-    await list.saveUpdatedCells();
-    break;
-  }
+  await list.addRow(editedObject);
 }
 
 // Login to Discord with your client's token
