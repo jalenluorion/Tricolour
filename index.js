@@ -209,13 +209,13 @@ client.on('messageCreate', async originalMessage => {
           if (buttonInteraction.customId === 'accept') {
             responce = true;
             await buttonInteraction.update({ content: `## ${firstLine} Request - Accepted by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-            await originalMessage.reply({ content: 'Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been accepted. Make your way to the Quartermasters House now!' }, { components: [rowDisabled] });
+            await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has been accepted. Make your way to the Quartermasters House now!` }, { components: [rowDisabled] });
             await addToSheet(item);
           }
           else if (buttonInteraction.customId === 'deny') {
             responce = true;
             await buttonInteraction.update({ content: `## ${firstLine} Request - Denied by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-            await buttonInteraction.followUp({ content: 'Provide a reason for denying this request.' });
+            await buttonInteraction.followUp({ content: `Provide a reason for denying this request.` });
             const filter = m => m.author.id === buttonInteraction.user.id;
             const denyReason = buttonInteraction.channel.createMessageCollector({ filter, time: 300000 });
 
@@ -226,11 +226,11 @@ client.on('messageCreate', async originalMessage => {
               }
               responce2 = true;
               await responceMessage.react('✅');
-              await originalMessage.reply({ content: 'Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been denied. Reason: ' + responceMessage.content });
+              await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has been denied. Reason: ` + responceMessage.content });
             });
             denyReason.on('end', async collected => {
               if (responce2 == false) {
-                await originalMessage.reply({ content: 'Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been denied. Reason: None Specified' });
+                await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has been denied. Reason: None Specified` });
               }
               console.log(`Collected ${collected.size} items`);
             });
@@ -274,7 +274,7 @@ client.on('messageCreate', async originalMessage => {
 
               await responceMessage.react('✅');
               await QMMessage.edit({ content: `## ${firstLine} Request - Edited by <@${qmUser}>\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${responceMessage.content} / ${item['available']} (EDITED)**`, components: [rowDisabled] });
-              const confirmation = await originalMessage.reply({ content: 'Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + responceMessage.content + '**. Please confirm the new quantity.', components: [newRow] });
+              const confirmation = await originalMessage.reply({ content: `Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has been edited to **' + responceMessage.content + '**. Please confirm the new quantity.`, components: [newRow] });
               const filter = i => i.customId === 'userAccept' || i.customId === 'userDeny';
               const confirmationButton = confirmation.createMessageComponentCollector({ filter, time: 300000 });
 
@@ -287,20 +287,20 @@ client.on('messageCreate', async originalMessage => {
                 if (buttonInteraction.customId === 'userAccept') {
                   responce3 = true;
                   await QMMessage.reply({ content: `The edited request has been accepted by the requester. <@${qmUser}>` });
-                  await buttonInteraction.update({ content: 'Your edited ${firstLine} request of **' + responceMessage.content + ' ' + item['ITEM'] + '** has been accepted. Make your way to the Quartermasters House now!', components: [newRowDisabled] });
+                  await buttonInteraction.update({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has been accepted. Make your way to the Quartermasters House now!`, components: [newRowDisabled] });
                   item['QUANTITY'] = responceMessage.content;
                   await addToSheet(item);
                 }
                 else if (buttonInteraction.customId === 'userDeny') {
                   responce3 = true;
                   await QMMessage.reply({ content: `The edited request has been denied by the reqester. <@${qmUser}>` });
-                  await buttonInteraction.update({ content: 'Your edited ${firstLine} request of **' + responceMessage.content + ' ' + item['ITEM'] + '** has been denied.', components: [newRowDisabled] });
+                  await buttonInteraction.update({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has been denied.`, components: [newRowDisabled] });
                 }
               });
               confirmationButton.on('end', async collected => {
                 if (responce3 == false) {
                   await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${responceMessage.content} / ${item['available']} (EDITED)**`, components: [rowDisabled] });
-                  await confirmation.edit({ content: 'Your edited ${firstLine} request of **' + responceMessage.content + ' ' + item['ITEM'] + '** has timed out. Please resubmit your request.', components: [rowDisabled] });
+                  await confirmation.edit({ content: `Your edited ${firstLine} request of **` + responceMessage.content + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.`, components: [rowDisabled] });
                 }
                 console.log(`Collected ${collected.size} items`);
               });
@@ -308,7 +308,7 @@ client.on('messageCreate', async originalMessage => {
             quantityCollector.on('end', async collected => {
               if (responce2 == false) {
                 await QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage}>\nContribution: ${userInfo['contribution']}\nRegion: ${userInfo['region']}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-                await originalMessage.reply({ content: 'Your ${firstLine} request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has timed out. Please resubmit your request.' });
+                await originalMessage.reply({ content: `Your ${firstLine} request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.` });
               }
               console.log(`Collected ${collected.size} items`);
             });
@@ -317,7 +317,7 @@ client.on('messageCreate', async originalMessage => {
         actionButtons.on('end', collected => {
           if (responce == false) {
             QMMessage.edit({ content: `## ${firstLine} Request - Timed Out\nUser: <@${originalMessage.author.id}>\nContribution: ${userInfo.contribution}\nRegion: ${userInfo.region}\nReason: ${item['NOTES']}\n**${item['ITEM']} - ${item['QUANTITY']} / ${item['available']}**`, components: [rowDisabled] });
-            originalMessage.reply({ content: 'Your request of **' + item['QUANTITY'] + ' ' + item['ITEM'] + '** has timed out. Please resubmit your request.' });
+            originalMessage.reply({ content: `Your request of **` + item['QUANTITY'] + ` ` + item['ITEM'] + `** has timed out. Please resubmit your request.` });
           }
           console.log(`Collected ${collected.size} items`);
         });
@@ -329,6 +329,7 @@ client.on('messageCreate', async originalMessage => {
     if (firstLine === "WITHDRAW" || firstLine === "DEPOSIT") {
       const replyMessage = await originalMessage.reply("Submitting...");
       const otherUser = triggerMessage.split('\n')[1];
+      const confirmedUser = await name(otherUser);
       const reason = triggerMessage.split('\n')[2];
       const newTriggerMessage = triggerMessage.split('\n').slice(3);
 
@@ -353,7 +354,7 @@ client.on('messageCreate', async originalMessage => {
 
         const lineObject = {
           'Quartermaster': userName,
-          'Player Name': otherUser,
+          'Player Name': confirmedUser.minecraftIGN,
           'ITEM': validated,
           'QUANTITY': lineArray[1],
           'TYPE': firstLine,
@@ -366,6 +367,9 @@ client.on('messageCreate', async originalMessage => {
         if (available == null) {
           error = error + lineArray[0] + " is not a valid item. Use \`/inventory ALL` to view all valid items.\n";
         }
+        if (confirmedUser == null) {
+          error = error + otherUser + " is not a valid user. Use \`/user <username>` to view all valid users.\n";
+        }
         finalList.push(lineObject);
       }
 
@@ -375,7 +379,10 @@ client.on('messageCreate', async originalMessage => {
       }
 
       console.log(finalList);
-      replyMessage.edit("Your request has been submitted.");
+      replyMessage.edit("Your request has been submitted and logged.");
+      for (const item of finalList) {
+        await addToSheet(item);
+      }
     }
   }
 });
